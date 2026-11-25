@@ -1,0 +1,10 @@
+# Build output
+/Golang-Restful-API-MySQL
+*.exe
+*.out
+
+# Local settings
+.env
+.idea/
+.vscode/
+.DS_Store
