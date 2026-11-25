@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 )
 
 type user struct {
@@ -11,35 +10,48 @@ type user struct {
 	Age  int    `json:"age"`
 }
 
+// Every value goes to MySQL as a parameter (?), never inside the SQL text,
+// so a name such as  x', age=0 WHERE 1=1 --  is stored as typed.
+
 func (u *user) getUser(db *sql.DB) error {
-	statement := fmt.Sprintf("SELECT name, age FROM users WHERE id=%d", u.ID)
-	return db.QueryRow(statement).Scan(&u.Name, &u.Age)
+	return db.QueryRow("SELECT name, age FROM users WHERE id = ?", u.ID).Scan(&u.Name, &u.Age)
 }
-func (u *user) updateUser(db *sql.DB) error {
-	statement := fmt.Sprintf("UPDATE users SET name='%s', age=%d WHERE id=%d", u.Name, u.Age, u.ID)
-	_, err := db.Exec(statement)
-	return err
+
+// updateUser reports how many rows matched (the connection is opened with
+// clientFoundRows, so an update that changes nothing still counts its row).
+func (u *user) updateUser(db *sql.DB) (int64, error) {
+	res, err := db.Exec("UPDATE users SET name = ?, age = ? WHERE id = ?", u.Name, u.Age, u.ID)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
-func (u *user) deleteUser(db *sql.DB) error {
-	statement := fmt.Sprintf("DELETE FROM users WHERE id=%d", u.ID)
-	_, err := db.Exec(statement)
-	return err
+
+func (u *user) deleteUser(db *sql.DB) (int64, error) {
+	res, err := db.Exec("DELETE FROM users WHERE id = ?", u.ID)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
+
 func (u *user) createUser(db *sql.DB) error {
-	statement := fmt.Sprintf("INSERT INTO users(name, age) VALUES('%s', %d)", u.Name, u.Age)
-	_, err := db.Exec(statement)
+	res, err := db.Exec("INSERT INTO users (name, age) VALUES (?, ?)", u.Name, u.Age)
 	if err != nil {
 		return err
 	}
-	err = db.QueryRow("SELECT LAST_INSERT_ID()").Scan(&u.ID)
+	// The id of this INSERT. A separate SELECT LAST_INSERT_ID() may run on
+	// another pooled connection and read 0.
+	id, err := res.LastInsertId()
 	if err != nil {
 		return err
 	}
+	u.ID = int(id)
 	return nil
 }
+
 func getUsers(db *sql.DB, start, count int) ([]user, error) {
-	statement := fmt.Sprintf("SELECT id, name, age FROM users LIMIT %d OFFSET %d", count, start)
-	rows, err := db.Query(statement)
+	rows, err := db.Query("SELECT id, name, age FROM users ORDER BY id LIMIT ? OFFSET ?", count, start)
 	if err != nil {
 		return nil, err
 	}
@@ -52,5 +64,5 @@ func getUsers(db *sql.DB, start, count int) ([]user, error) {
 		}
 		users = append(users, u)
 	}
-	return users, nil
+	return users, rows.Err()
 }

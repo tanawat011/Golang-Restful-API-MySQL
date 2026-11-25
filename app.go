@@ -108,8 +108,13 @@ func (a *App) updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 	u.ID = id
-	if err := u.updateUser(a.DB); err != nil {
+	n, err := u.updateUser(a.DB)
+	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if n == 0 {
+		respondWithError(w, http.StatusNotFound, "User not found")
 		return
 	}
 	respondWithJSON(w, http.StatusOK, u)
@@ -122,8 +127,13 @@ func (a *App) deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := user{ID: id}
-	if err := u.deleteUser(a.DB); err != nil {
+	n, err := u.deleteUser(a.DB)
+	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if n == 0 {
+		respondWithError(w, http.StatusNotFound, "User not found")
 		return
 	}
 	respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})

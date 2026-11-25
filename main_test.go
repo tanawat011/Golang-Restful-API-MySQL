@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -108,8 +107,7 @@ func addUsers(count int) {
 		count = 1
 	}
 	for i := 0; i < count; i++ {
-		statement := fmt.Sprintf("INSERT INTO users(name, age) VALUES('%s', %d)", ("User " + strconv.Itoa(i+1)), ((i + 1) * 10))
-		a.DB.Exec(statement)
+		a.DB.Exec("INSERT INTO users (name, age) VALUES (?, ?)", "User "+strconv.Itoa(i+1), (i+1)*10)
 	}
 }
 
